@@ -12,6 +12,7 @@ provider "aws" {
 
 resource "aws_vpc" "devnet_vpc" {
   cidr_block = "172.16.0.0/16"
+  enable_dns_hostnames = true
   tags {
     Name = "tf-devnet"
   }
@@ -55,6 +56,7 @@ resource "aws_key_pair" "default_ssh_key" {
 }
 
 ########## BASTION HOST ###########
+## TODO: EBS VOLUMES?
 resource "aws_instance" "bastion" {
   ami = "${var.ami}"
   instance_type = "t2.micro"
@@ -68,12 +70,17 @@ resource "aws_instance" "bastion" {
   tags {
     Name = "bastion"
   }
+  private_dns = "bastion"
 }
 
 resource "aws_eip" "devnet_eip" {
   instance = "${aws_instance.bastion.id}"
   vpc = true
   depends_on = [ "aws_internet_gateway.gw" ]
+}
+
+output "elastic_ip" {
+  value = "${aws_eip.devnet_eip.public_ip}"
 }
 
 ########## sec group #####
@@ -115,7 +122,7 @@ resource "aws_security_group" "bastion" {
 }
 
 ########## DEV NODES ##############
-resource "aws_instance" "terratest1" {
+resource "aws_instance" "ipa-01" {
   ami = "${var.ami}"
   instance_type = "t2.micro"
   subnet_id = "${aws_subnet.devnet_subnet.id}"
@@ -125,6 +132,23 @@ resource "aws_instance" "terratest1" {
     "${aws_security_group.default.id}"
   ]
   tags {
-    Name = "terratest1"
+    Name = "ipa-01"
   }
+  private_dns = "ipa-01"
 }
+
+resource "aws_instance" "ipa-02" {
+  ami = "${var.ami}"
+  instance_type = "t2.micro"
+  subnet_id = "${aws_subnet.devnet_subnet.id}"
+  associate_public_ip_address = false
+  key_name = "${aws_key_pair.default_ssh_key.key_name}"
+  vpc_security_group_ids = [
+    "${aws_security_group.default.id}"
+  ]
+  tags {
+    Name = "ipa-02"
+  }
+  private_dns = "ipa-02"
+}
+
